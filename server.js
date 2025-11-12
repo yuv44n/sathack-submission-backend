@@ -42,6 +42,7 @@ app.use(cookieParser());
 app.use(hpp());
 
 // CORS (tightened)
+const allowedOrigin = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 app.use(cors({
 	origin: [process.env.CLIENT_ORIGIN, 'http://localhost:5173'],
 	credentials: true,
