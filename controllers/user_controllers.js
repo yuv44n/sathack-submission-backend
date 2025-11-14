@@ -160,27 +160,18 @@ export const authenticateUser = async (req, res, next) => {
       ...(process.env.COOKIE_DOMAIN && !isCrossOrigin && { domain: process.env.COOKIE_DOMAIN }),
     };
 
-    res.cookie("session", token, cookieOptions);
-    
-    // Log cookie settings for debugging (without sensitive data)
-    console.log("[AUTH] Cookie set with options:", {
-      httpOnly: cookieOptions.httpOnly,
-      secure: cookieOptions.secure,
-      sameSite: cookieOptions.sameSite,
-      maxAge: cookieOptions.maxAge,
-      path: cookieOptions.path,
-      domain: cookieOptions.domain || "default",
-      detectedCrossOrigin: isCrossOrigin,
-      requestOrigin: requestOrigin || "none",
-      backendUrl: backendUrl,
-      isHttps: isHttps,
-    });
+    // For localStorage flows return the token in the response body so the
+    // client can store it in localStorage and send it as
+    // `Authorization: Bearer <token>` on subsequent requests.
+    console.log('[AUTH] Generated JWT for user (not setting cookie for localStorage flow)');
 
     return res.status(200).json({
-      message: "Login successful",
+      message: 'Login successful',
       uid: sanitizedUid,
       email: sanitizedEmail,
       teamId: teamId,
+      token: token,
+      expiresIn: expiresIn,
     });
 
   } catch (error) {
@@ -413,50 +404,14 @@ export const getSubmission = async (req, res, next) => {
  */
 export const logoutUser = async (req, res, next) => {
   try {
-    // Clear the session cookie (must match the same options used when setting)
-    const isProduction = process.env.NODE_ENV === "production";
-    const requestOrigin = req.headers.origin;
-    
-    // Get backend URL (handle proxy scenarios)
-    const backendHost = req.get('host') || req.hostname;
-    const forwardedProto = req.headers['x-forwarded-proto'];
-    const backendProtocol = forwardedProto || req.protocol || (req.secure ? 'https' : 'http');
-    const backendUrl = `${backendProtocol}://${backendHost}`;
-    
-    const isExplicitCrossOrigin = process.env.COOKIE_SAME_SITE === "none";
-    let isAutoDetectedCrossOrigin = false;
-    
-    if (requestOrigin) {
-      try {
-        const originHostname = new URL(requestOrigin).hostname;
-        const backendHostname = new URL(backendUrl).hostname;
-        isAutoDetectedCrossOrigin = originHostname !== backendHostname;
-      } catch (e) {
-        // If URL parsing fails, check simple string comparison
-        isAutoDetectedCrossOrigin = requestOrigin !== backendUrl && 
-                                    !requestOrigin.includes(backendHost);
-      }
-    }
-    
-    const isCrossOrigin = isExplicitCrossOrigin || isAutoDetectedCrossOrigin;
-    
-    const isHttps = req.secure || 
-                    req.protocol === 'https' || 
-                    forwardedProto === 'https' ||
-                    (requestOrigin && requestOrigin.startsWith('https://'));
-    
-    res.clearCookie("session", {
-      httpOnly: true,
-      secure: isCrossOrigin ? true : (isProduction || isHttps),
-      sameSite: isCrossOrigin ? "none" : (isProduction ? "strict" : "lax"),
-      path: "/",
-      ...(process.env.COOKIE_DOMAIN && !isCrossOrigin && { domain: process.env.COOKIE_DOMAIN }),
-    });
-
-    console.log("[LOGOUT] User logged out successfully");
+    // For localStorage-based auth, logout is performed client-side by removing
+    // the token from localStorage. We still return a success response so the
+    // client can clear its stored token.
+    console.log('[LOGOUT] Logout requested - instruct client to remove token from localStorage');
 
     return res.status(200).json({
-      message: "Logged out successfully",
+      message: 'Logged out successfully',
+      note: 'Please remove the stored token from localStorage on the client.',
     });
 
   } catch (error) {

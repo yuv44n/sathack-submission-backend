@@ -17,13 +17,19 @@ export const verifyAuth = async (req, res, next) => {
       },
     });
 
-    // Get token from cookie
-    const token = req.cookies?.session;
+    // Get token from Authorization header (Bearer) or fallback to cookie
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    let token = null;
+    if (authHeader && typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+      token = authHeader.slice(7).trim();
+    } else {
+      token = req.cookies?.session;
+    }
 
     if (!token) {
-      return res.status(401).json({ 
-        error: "Unauthorized",
-        details: "No session token found. Please login first."
+      return res.status(401).json({
+        error: 'Unauthorized',
+        details: 'No session token found. Please login first. Send as `Authorization: Bearer <token>` for localStorage flows.'
       });
     }
 
